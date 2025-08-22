@@ -1,0 +1,54 @@
+name: Release (Windows x64)
+
+on:
+  push:
+    tags:
+      - 'release/**'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-gnu
+
+      - name: Install mingw-w64
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends mingw-w64
+
+      - name: Cache cargo registry + target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}-x86_64-pc-windows-gnu
+          restore-keys: ${{ runner.os }}-cargo-release-
+
+      - name: Build Windows x64 binary
+        run: cargo build --release --target x86_64-pc-windows-gnu
+
+      - name: Strip binaries
+        run: |
+          find target/x86_64-pc-windows-gnu/release -maxdepth 1 -type f -name "*.exe" -print0 \
+          | xargs -0 -I{} x86_64-w64-mingw32-strip {}
+
+      - name: Create GitHub Release and upload asset(s)
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            target/x86_64-pc-windows-gnu/release/*.exe
+          name: ${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
