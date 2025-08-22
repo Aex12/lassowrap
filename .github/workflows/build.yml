@@ -3,6 +3,7 @@ name: Build
 on:
   push:
     branches: [ "main" ]
+    tags: [ "release/**" ]
   pull_request:
     branches: [ "main" ]
 
@@ -34,8 +35,18 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-debug-${{ hashFiles('**/Cargo.lock') }}-x86_64-pc-windows-gnu
-          restore-keys: ${{ runner.os }}-cargo-debug-
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-x86_64-pc-windows-gnu
+          restore-keys: ${{ runner.os }}-cargo-
 
       - name: Build Windows x64 binary
-        run: cargo build --target x86_64-pc-windows-gnu
+        run: cargo build --release --target x86_64-pc-windows-gnu
+
+      - name: Create GitHub Release and upload asset(s)
+        uses: softprops/action-gh-release@v2
+        if: github.ref_type == 'tag'
+        with:
+          files: |
+            target/x86_64-pc-windows-gnu/release/*.exe
+          name: ${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
